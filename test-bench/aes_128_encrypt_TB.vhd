@@ -1,0 +1,729 @@
+library ieee;
+use ieee.NUMERIC_STD.all;
+use ieee.std_logic_1164.all;
+
+library aes_128_pkg;
+use aes_128_pkg.aes_128_pkg.all;
+
+entity aes_128_encrypt_tb is
+end aes_128_encrypt_tb;
+
+architecture TB_ARCHITECTURE of aes_128_encrypt_tb is
+	component aes_128_encrypt
+		port(
+			CLK : in STD_LOGIC;
+			RESET : in STD_LOGIC;
+			START : in STD_LOGIC;
+			KEY_LOAD : in STD_LOGIC;
+			IV_LOAD : in STD_LOGIC;
+			DB_LOAD : in STD_LOGIC;
+			STREAM : in STD_LOGIC;
+			ECB_MODE : in STD_LOGIC;
+			CBC_MODE : in STD_LOGIC;
+			DATA_IN : in STD_LOGIC_VECTOR(0 to 31);
+			DATA_OUT : out STD_LOGIC_VECTOR(0 to 31);
+			DONE : out STD_LOGIC
+		);
+	end component;
+	
+	signal CLK : STD_LOGIC;
+	signal RESET : STD_LOGIC;
+	signal START : STD_LOGIC;
+	signal KEY_LOAD : STD_LOGIC;
+	signal IV_LOAD : STD_LOGIC;
+	signal DB_LOAD : STD_LOGIC;
+	signal STREAM : STD_LOGIC;
+	signal ECB_MODE : STD_LOGIC;
+	signal CBC_MODE : STD_LOGIC;
+	signal DATA_IN : STD_LOGIC_VECTOR(0 to 31);
+	signal DATA_OUT : STD_LOGIC_VECTOR(0 to 31);
+	signal DONE : STD_LOGIC;
+	
+	-- Test that bytes match an expected value.
+	procedure TestByte(FUNC : String; VALUE : byte; EXPECTED : byte) is
+	begin
+		assert VALUE = EXPECTED report "ENCRYPTION: " & FUNC & ": value: " & to_hstring(VALUE) & " but expected: " & to_hstring(EXPECTED) severity error;
+	end procedure;
+	
+	-- Test that words match an expected value.
+	procedure TestWord(FUNC : String; VALUE : word; EXPECTED : word) is
+	begin
+		assert VALUE = EXPECTED report "ENCRYPTION: " & FUNC & ": value: " & to_hstring(VALUE) & " but expected: " & to_hstring(EXPECTED) severity error;
+	end procedure;
+	
+begin
+	
+	UUT1 : aes_128_encrypt
+	port map (
+		CLK => CLK,
+		RESET => RESET,
+		START => START,
+		KEY_LOAD => KEY_LOAD,
+		IV_LOAD => IV_LOAD,
+		DB_LOAD => DB_LOAD,
+		STREAM => STREAM,
+		ECB_MODE => ECB_MODE,
+		CBC_MODE => CBC_MODE,
+		DATA_IN => DATA_IN,
+		DATA_OUT => DATA_OUT,
+		DONE => DONE
+	);
+
+	PACKAGE_TESTS: process		
+		-- Appendix A of FIPS 197
+		procedure TestKeyExpansion is
+			variable key : key_type := (X"2b7e1516", X"28aed2a6", X"abf71588", X"09cf4f3c");
+			variable w : w_type;
+		begin
+			w := KeyExpansion(key);
+			TestWord("KeyExpansion", w(4), X"a0fafe17");
+			TestWord("KeyExpansion", w(5), X"88542cb1");
+			TestWord("KeyExpansion", w(6), X"23a33939");
+			TestWord("KeyExpansion", w(7), X"2a6c7605");
+			TestWord("KeyExpansion", w(8), X"f2c295f2");
+			TestWord("KeyExpansion", w(9), X"7a96b943");
+			TestWord("KeyExpansion", w(10), X"5935807a");
+			TestWord("KeyExpansion", w(11), X"7359f67f");
+			TestWord("KeyExpansion", w(12), X"3d80477d");
+			TestWord("KeyExpansion", w(13), X"4716fe3e");
+			TestWord("KeyExpansion", w(14), X"1e237e44");
+			TestWord("KeyExpansion", w(15), X"6d7a883b");
+			TestWord("KeyExpansion", w(16), X"ef44a541");
+			TestWord("KeyExpansion", w(17), X"a8525b7f");
+			TestWord("KeyExpansion", w(18), X"b671253b");
+			TestWord("KeyExpansion", w(19), X"db0bad00");
+			TestWord("KeyExpansion", w(20), X"d4d1c6f8");
+			TestWord("KeyExpansion", w(21), X"7c839d87");
+			TestWord("KeyExpansion", w(22), X"caf2b8bc");
+			TestWord("KeyExpansion", w(23), X"11f915bc");
+			TestWord("KeyExpansion", w(24), X"6d88a37a");
+			TestWord("KeyExpansion", w(25), X"110b3efd");
+			TestWord("KeyExpansion", w(26), X"dbf98641");
+			TestWord("KeyExpansion", w(27), X"ca0093fd");
+			TestWord("KeyExpansion", w(28), X"4e54f70e");
+			TestWord("KeyExpansion", w(29), X"5f5fc9f3");
+			TestWord("KeyExpansion", w(30), X"84a64fb2");
+			TestWord("KeyExpansion", w(31), X"4ea6dc4f");
+			TestWord("KeyExpansion", w(32), X"ead27321");
+			TestWord("KeyExpansion", w(33), X"b58dbad2");
+			TestWord("KeyExpansion", w(34), X"312bf560");
+			TestWord("KeyExpansion", w(35), X"7f8d292f");
+			TestWord("KeyExpansion", w(36), X"ac7766f3");
+			TestWord("KeyExpansion", w(37), X"19fadc21");
+			TestWord("KeyExpansion", w(38), X"28d12941");
+			TestWord("KeyExpansion", w(39), X"575c006e");
+			TestWord("KeyExpansion", w(40), X"d014f9a8");
+			TestWord("KeyExpansion", w(41), X"c9ee2589");
+			TestWord("KeyExpansion", w(42), X"e13f0cc8");
+			TestWord("KeyExpansion", w(43), X"b6630ca6");
+		end procedure;
+		
+		-- Hand created test cases.
+		procedure TestXTimes is
+			variable multiplied : byte;
+		begin
+			multiplied := XTimes(X"D4", 2);
+			TestByte("XTimes", multiplied, X"B3");
+			
+			multiplied := XTimes(X"BF", 3);
+			TestByte("XTimes", multiplied, X"DA");
+		end procedure;
+		
+		-- Appendix B of FIPS 197
+		procedure TestAddRoundKey is
+			variable state : state_type;
+			variable round_key : key_type;
+			variable added : state_type;
+		begin
+			-- Round 1
+			state := (X"046681e5", X"e0cb199a", X"48f8d37a", X"2806264c");
+			round_key := (X"a0fafe17", X"88542cb1", X"23a33939", X"2a6c7605");
+			added := AddRoundKey(state, round_key);
+			
+			TestWord("AddRoundKey", added(0), X"a49c7ff2");
+			TestWord("AddRoundKey", added(1), X"689f352b");
+			TestWord("AddRoundKey", added(2), X"6b5bea43");
+			TestWord("AddRoundKey", added(3), X"026a5049");
+			
+			-- Round 2
+			state := (X"584dcaf1", X"1b4b5aac", X"dbe7caa8", X"1b6bb0e5");
+			round_key := (X"f2c295f2", X"7a96b943", X"5935807a", X"7359f67f");
+			added := AddRoundKey(state, round_key);
+			
+			TestWord("AddRoundKey", added(0), X"aa8f5f03");
+			TestWord("AddRoundKey", added(1), X"61dde3ef");
+			TestWord("AddRoundKey", added(2), X"82d24ad2");
+			TestWord("AddRoundKey", added(3), X"6832469a");
+		end procedure;
+		
+		-- Appendix B of FIPS 197
+		procedure TestSubBytes is
+			variable state : state_type;
+			variable substituted : state_type;
+		begin
+			-- Round 1
+			state := (X"193de3be", X"a0f4e22b", X"9ac68d2a", X"e9f84808");
+			substituted := SubBytes(state);
+			
+			TestWord("SubBytes", substituted(0), X"d42711ae");
+			TestWord("SubBytes", substituted(1), X"e0bf98f1");
+			TestWord("SubBytes", substituted(2), X"b8b45de5");
+			TestWord("SubBytes", substituted(3), X"1e415230");
+			
+			-- Round 2
+			state := (X"a49c7ff2", X"689f352b", X"6b5bea43", X"026a5049");
+			substituted := SubBytes(state);
+			
+			TestWord("SubBytes", substituted(0), X"49ded289");
+			TestWord("SubBytes", substituted(1), X"45db96f1");
+			TestWord("SubBytes", substituted(2), X"7f39871a");
+			TestWord("SubBytes", substituted(3), X"7702533b");
+		end procedure;
+		
+		-- Appendix B of FIPS 197
+		procedure TestShiftRows is
+			variable state : state_type;
+			variable shifted : state_type;
+		begin
+			-- Round 1
+			state := (X"d42711ae", X"e0bf98f1", X"b8b45de5", X"1e415230");
+			shifted := ShiftRows(state);
+			
+			TestWord("ShiftRows", shifted(0), X"d4bf5d30");
+			TestWord("ShiftRows", shifted(1), X"e0b452ae");
+			TestWord("ShiftRows", shifted(2), X"b84111f1");
+			TestWord("ShiftRows", shifted(3), X"1e2798e5");
+			
+			-- Round 2
+			state := (X"49ded289", X"45db96f1", X"7f39871a", X"7702533b");
+			shifted := ShiftRows(state);
+			
+			TestWord("ShiftRows", shifted(0), X"49db873b");
+			TestWord("ShiftRows", shifted(1), X"45395389");
+			TestWord("ShiftRows", shifted(2), X"7f02d2f1");
+			TestWord("ShiftRows", shifted(3), X"77de961a");
+		end procedure;
+		
+		-- Appendix B of FIPS 197
+		procedure TestMixColumns is
+			variable state : state_type;
+			variable mixed : state_type;
+		begin
+			-- Round 1
+			state := (X"D4BF5D30", X"E0B452AE", X"B84111F1", X"1E2798E5");
+			mixed := MixColumns(state);
+			
+			TestWord("MixColumns", mixed(0), X"046681e5");
+			TestWord("MixColumns", mixed(1), X"e0cb199a");
+			TestWord("MixColumns", mixed(2), X"48f8d37a");
+			TestWord("MixColumns", mixed(3), X"2806264c");
+			
+			-- Round 2
+			state := (X"49db873b", X"45395389", X"7f02d2f1", X"77de961a");
+			mixed := MixColumns(state);
+			
+			TestWord("MixColumns", mixed(0), X"584dcaf1");
+			TestWord("MixColumns", mixed(1), X"1b4b5aac");
+			TestWord("MixColumns", mixed(2), X"dbe7caa8");
+			TestWord("MixColumns", mixed(3), X"1b6bb0e5");
+		end procedure;
+		
+		-- Appendix B of FIPS 197
+		procedure TestCipher is
+			variable plainText : state_type := (X"3243f6a8", X"885a308d", X"313198a2", X"e0370734");
+			variable key : key_type := (X"2b7e1516", X"28aed2a6", X"abf71588", X"09cf4f3c");
+			variable cipherText : state_type;
+			variable w : w_type;
+		begin
+			cipherText := Cipher(plainText, KeyExpansion(key));
+			
+			TestWord("Cipher", cipherText(0), X"3925841d");
+			TestWord("Cipher", cipherText(1), X"02dc09fb");
+			TestWord("Cipher", cipherText(2), X"dc118597");
+			TestWord("Cipher", cipherText(3), X"196a0b32");
+		end procedure;
+		
+		-- Test the cihper function.
+		procedure TestCipherCase(KEY : std_logic_vector(0 to 127); PLAIN_TEXT : std_logic_vector(0 to 127); EXPECTED_CIPHER_TEXT : std_logic_vector(0 to 127)) is
+			variable keyVal : key_type;
+			variable plainTextVal : state_type;
+			variable cipherTextVal : state_type;
+			variable cipherTextVec : std_logic_vector(0 to 127);
+		begin
+			keyVal(0) := KEY(0 to 31);
+			keyVal(1) := KEY(32 to 63);
+			keyVal(2) := KEY(64 to 95);
+			keyVal(3) := KEY(96 to 127);
+			
+			plainTextVal(0) := PLAIN_TEXT(0 to 31);
+			plainTextVal(1) := PLAIN_TEXT(32 to 63);
+			plainTextVal(2) := PLAIN_TEXT(64 to 95);
+			plainTextVal(3) := PLAIN_TEXT(96 to 127);
+			
+			cipherTextVal := Cipher(plainTextVal, KeyExpansion(keyVal));
+			
+			cipherTextVec(0 to 31) := cipherTextVal(0);
+			cipherTextVec(32 to 63) := cipherTextVal(1);
+			cipherTextVec(64 to 95) := cipherTextVal(2);
+			cipherTextVec(96 to 127) := cipherTextVal(3);
+			
+			assert cipherTextVec = EXPECTED_CIPHER_TEXT report "TestCipherCase: Received: " & to_hstring(cipherTextVec) & " but expected: " & to_hstring(EXPECTED_CIPHER_TEXT) severity error;			
+		end procedure;
+	begin
+		report "Beginning Package Tests";
+		
+		TestKeyExpansion;
+		TestXTimes;
+		TestAddRoundKey;
+		
+		TestSubBytes;
+		TestShiftRows;
+		TestMixColumns;
+		TestCipher;
+		
+		-- Appendix B of AESAVS: GFSbox known answer test values
+		TestCipherCase(X"00000000000000000000000000000000", X"f34481ec3cc627bacd5dc3fb08f273e6", X"0336763e966d92595a567cc9ce537f5e");
+		TestCipherCase(X"00000000000000000000000000000000", X"9798c4640bad75c7c3227db910174e72", X"a9a1631bf4996954ebc093957b234589");
+		TestCipherCase(X"00000000000000000000000000000000", X"96ab5c2ff612d9dfaae8c31f30c42168", X"ff4f8391a6a40ca5b25d23bedd44a597");
+		TestCipherCase(X"00000000000000000000000000000000", X"6a118a874519e64e9963798a503f1d35", X"dc43be40be0e53712f7e2bf5ca707209");
+		TestCipherCase(X"00000000000000000000000000000000", X"cb9fceec81286ca3e989bd979b0cb284", X"92beedab1895a94faa69b632e5cc47ce");
+		TestCipherCase(X"00000000000000000000000000000000", X"b26aeb1874e47ca8358ff22378f09144", X"459264f4798f6a78bacb89c15ed3d601");
+		TestCipherCase(X"00000000000000000000000000000000", X"58c8e00b2631686d54eab84b91f0aca1", X"08a4e2efec8a8e3312ca7460b9040bbf");
+		
+		-- Appendix C of AESAVS: KeySbox know answer test values
+		TestCipherCase(X"10a58869d74be5a374cf867cfb473859", X"00000000000000000000000000000000", X"6d251e6944b051e04eaa6fb4dbf78465");
+		TestCipherCase(X"caea65cdbb75e9169ecd22ebe6e54675", X"00000000000000000000000000000000", X"6e29201190152df4ee058139def610bb");
+		TestCipherCase(X"a2e2fa9baf7d20822ca9f0542f764a41", X"00000000000000000000000000000000", X"c3b44b95d9d2f25670eee9a0de099fa3");
+		TestCipherCase(X"b6364ac4e1de1e285eaf144a2415f7a0", X"00000000000000000000000000000000", X"5d9b05578fc944b3cf1ccf0e746cd581");
+		TestCipherCase(X"64cf9c7abc50b888af65f49d521944b2", X"00000000000000000000000000000000", X"f7efc89d5dba578104016ce5ad659c05");
+		TestCipherCase(X"47d6742eefcc0465dc96355e851b64d9", X"00000000000000000000000000000000", X"0306194f666d183624aa230a8b264ae7");
+		TestCipherCase(X"3eb39790678c56bee34bbcdeccf6cdb5", X"00000000000000000000000000000000", X"858075d536d79ccee571f7d7204b1f67");
+		TestCipherCase(X"64110a924f0743d500ccadae72c13427", X"00000000000000000000000000000000", X"35870c6a57e9e92314bcb8087cde72ce");
+		TestCipherCase(X"18d8126516f8a12ab1a36d9f04d68e51", X"00000000000000000000000000000000", X"6c68e9be5ec41e22c825b7c7affb4363");
+		TestCipherCase(X"f530357968578480b398a3c251cd1093", X"00000000000000000000000000000000", X"f5df39990fc688f1b07224cc03e86cea");
+		TestCipherCase(X"da84367f325d42d601b4326964802e8e", X"00000000000000000000000000000000", X"bba071bcb470f8f6586e5d3add18bc66");
+		TestCipherCase(X"e37b1c6aa2846f6fdb413f238b089f23", X"00000000000000000000000000000000", X"43c9f7e62f5d288bb27aa40ef8fe1ea8");
+		TestCipherCase(X"6c002b682483e0cabcc731c253be5674", X"00000000000000000000000000000000", X"3580d19cff44f1014a7c966a69059de5");
+		TestCipherCase(X"143ae8ed6555aba96110ab58893a8ae1", X"00000000000000000000000000000000", X"806da864dd29d48deafbe764f8202aef");
+		TestCipherCase(X"b69418a85332240dc82492353956ae0c", X"00000000000000000000000000000000", X"a303d940ded8f0baff6f75414cac5243");
+		TestCipherCase(X"71b5c08a1993e1362e4d0ce9b22b78d5", X"00000000000000000000000000000000", X"c2dabd117f8a3ecabfbb11d12194d9d0");
+		TestCipherCase(X"e234cdca2606b81f29408d5f6da21206", X"00000000000000000000000000000000", X"fff60a4740086b3b9c56195b98d91a7b");
+		TestCipherCase(X"13237c49074a3da078dc1d828bb78c6f", X"00000000000000000000000000000000", X"8146a08e2357f0caa30ca8c94d1a0544");
+		TestCipherCase(X"3071a2a48fe6cbd04f1a129098e308f8", X"00000000000000000000000000000000", X"4b98e06d356deb07ebb824e5713f7be3");
+		TestCipherCase(X"90f42ec0f68385f2ffc5dfc03a654dce", X"00000000000000000000000000000000", X"7a20a53d460fc9ce0423a7a0764c6cf2");
+		TestCipherCase(X"febd9a24d8b65c1c787d50a4ed3619a9", X"00000000000000000000000000000000", X"f4a70d8af877f9b02b4c40df57d45b17");
+
+		-- Appendix D of AESAVS: VarTxt known answer test value;
+		TestCipherCase(X"00000000000000000000000000000000", X"80000000000000000000000000000000", X"3ad78e726c1ec02b7ebfe92b23d9ec34");
+		TestCipherCase(X"00000000000000000000000000000000", X"c0000000000000000000000000000000", X"aae5939c8efdf2f04e60b9fe7117b2c2");
+		TestCipherCase(X"00000000000000000000000000000000", X"e0000000000000000000000000000000", X"f031d4d74f5dcbf39daaf8ca3af6e527");
+		TestCipherCase(X"00000000000000000000000000000000", X"f0000000000000000000000000000000", X"96d9fd5cc4f07441727df0f33e401a36");
+		TestCipherCase(X"00000000000000000000000000000000", X"f8000000000000000000000000000000", X"30ccdb044646d7e1f3ccea3dca08b8c0");
+		TestCipherCase(X"00000000000000000000000000000000", X"fc000000000000000000000000000000", X"16ae4ce5042a67ee8e177b7c587ecc82");
+		TestCipherCase(X"00000000000000000000000000000000", X"fe000000000000000000000000000000", X"b6da0bb11a23855d9c5cb1b4c6412e0a");
+		TestCipherCase(X"00000000000000000000000000000000", X"ff000000000000000000000000000000", X"db4f1aa530967d6732ce4715eb0ee24b");
+		TestCipherCase(X"00000000000000000000000000000000", X"ff800000000000000000000000000000", X"a81738252621dd180a34f3455b4baa2f");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffc00000000000000000000000000000", X"77e2b508db7fd89234caf7939ee5621a");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffe00000000000000000000000000000", X"b8499c251f8442ee13f0933b688fcd19");
+		TestCipherCase(X"00000000000000000000000000000000", X"fff00000000000000000000000000000", X"965135f8a81f25c9d630b17502f68e53");
+		TestCipherCase(X"00000000000000000000000000000000", X"fff80000000000000000000000000000", X"8b87145a01ad1c6cede995ea3670454f");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffc0000000000000000000000000000", X"8eae3b10a0c8ca6d1d3b0fa61e56b0b2");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffe0000000000000000000000000000", X"64b4d629810fda6bafdf08f3b0d8d2c5");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffff0000000000000000000000000000", X"d7e5dbd3324595f8fdc7d7c571da6c2a");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffff8000000000000000000000000000", X"f3f72375264e167fca9de2c1527d9606");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffc000000000000000000000000000", X"8ee79dd4f401ff9b7ea945d86666c13b");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffe000000000000000000000000000", X"dd35cea2799940b40db3f819cb94c08b");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffff000000000000000000000000000", X"6941cb6b3e08c2b7afa581ebdd607b87");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffff800000000000000000000000000", X"2c20f439f6bb097b29b8bd6d99aad799");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffc00000000000000000000000000", X"625d01f058e565f77ae86378bd2c49b3");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffe00000000000000000000000000", X"c0b5fd98190ef45fbb4301438d095950");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffff00000000000000000000000000", X"13001ff5d99806efd25da34f56be854b");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffff80000000000000000000000000", X"3b594c60f5c8277a5113677f94208d82");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffc0000000000000000000000000", X"e9c0fc1818e4aa46bd2e39d638f89e05");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffe0000000000000000000000000", X"f8023ee9c3fdc45a019b4e985c7e1a54");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffff0000000000000000000000000", X"35f40182ab4662f3023baec1ee796b57");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffff8000000000000000000000000", X"3aebbad7303649b4194a6945c6cc3694");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffc000000000000000000000000", X"a2124bea53ec2834279bed7f7eb0f938");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffe000000000000000000000000", X"b9fb4399fa4facc7309e14ec98360b0a");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffff000000000000000000000000", X"c26277437420c5d634f715aea81a9132");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffff800000000000000000000000", X"171a0e1b2dd424f0e089af2c4c10f32f");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffc00000000000000000000000", X"7cadbe402d1b208fe735edce00aee7ce");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffe00000000000000000000000", X"43b02ff929a1485af6f5c6d6558baa0f");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffff00000000000000000000000", X"092faacc9bf43508bf8fa8613ca75dea");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffff80000000000000000000000", X"cb2bf8280f3f9742c7ed513fe802629c");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffc0000000000000000000000", X"215a41ee442fa992a6e323986ded3f68");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffe0000000000000000000000", X"f21e99cf4f0f77cea836e11a2fe75fb1");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffff0000000000000000000000", X"95e3a0ca9079e646331df8b4e70d2cd6");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffff8000000000000000000000", X"4afe7f120ce7613f74fc12a01a828073");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffc000000000000000000000", X"827f000e75e2c8b9d479beed913fe678");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffe000000000000000000000", X"35830c8e7aaefe2d30310ef381cbf691");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffff000000000000000000000", X"191aa0f2c8570144f38657ea4085ebe5");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffff800000000000000000000", X"85062c2c909f15d9269b6c18ce99c4f0");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffc00000000000000000000", X"678034dc9e41b5a560ed239eeab1bc78");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffe00000000000000000000", X"c2f93a4ce5ab6d5d56f1b93cf19911c1");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffff00000000000000000000", X"1c3112bcb0c1dcc749d799743691bf82");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffff80000000000000000000", X"00c55bd75c7f9c881989d3ec1911c0d4");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffc0000000000000000000", X"ea2e6b5ef182b7dff3629abd6a12045f");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffe0000000000000000000", X"22322327e01780b17397f24087f8cc6f");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffff0000000000000000000", X"c9cacb5cd11692c373b2411768149ee7");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffff8000000000000000000", X"a18e3dbbca577860dab6b80da3139256");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffc000000000000000000", X"79b61c37bf328ecca8d743265a3d425c");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffe000000000000000000", X"d2d99c6bcc1f06fda8e27e8ae3f1ccc7");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffff000000000000000000", X"1bfd4b91c701fd6b61b7f997829d663b");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffff800000000000000000", X"11005d52f25f16bdc9545a876a63490a");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffc00000000000000000", X"3a4d354f02bb5a5e47d39666867f246a");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffe00000000000000000", X"d451b8d6e1e1a0ebb155fbbf6e7b7dc3");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffff00000000000000000", X"6898d4f42fa7ba6a10ac05e87b9f2080");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffff80000000000000000", X"b611295e739ca7d9b50f8e4c0e754a3f");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffc0000000000000000", X"7d33fc7d8abe3ca1936759f8f5deaf20");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffe0000000000000000", X"3b5e0f566dc96c298f0c12637539b25c");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffff0000000000000000", X"f807c3e7985fe0f5a50e2cdb25c5109e");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffff8000000000000000", X"41f992a856fb278b389a62f5d274d7e9");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffc000000000000000", X"10d3ed7a6fe15ab4d91acbc7d0767ab1");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffe000000000000000", X"21feecd45b2e675973ac33bf0c5424fc");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffff000000000000000", X"1480cb3955ba62d09eea668f7c708817");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffff800000000000000", X"66404033d6b72b609354d5496e7eb511");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffc00000000000000", X"1c317a220a7d700da2b1e075b00266e1");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffe00000000000000", X"ab3b89542233f1271bf8fd0c0f403545");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffff00000000000000", X"d93eae966fac46dca927d6b114fa3f9e");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffff80000000000000", X"1bdec521316503d9d5ee65df3ea94ddf");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffc0000000000000", X"eef456431dea8b4acf83bdae3717f75f");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffe0000000000000", X"06f2519a2fafaa596bfef5cfa15c21b9");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffff0000000000000", X"251a7eac7e2fe809e4aa8d0d7012531a");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffff8000000000000", X"3bffc16e4c49b268a20f8d96a60b4058");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffc000000000000", X"e886f9281999c5bb3b3e8862e2f7c988");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffe000000000000", X"563bf90d61beef39f48dd625fcef1361");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffff000000000000", X"4d37c850644563c69fd0acd9a049325b");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffff800000000000", X"b87c921b91829ef3b13ca541ee1130a6");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffc00000000000", X"2e65eb6b6ea383e109accce8326b0393");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffe00000000000", X"9ca547f7439edc3e255c0f4d49aa8990");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffff00000000000", X"a5e652614c9300f37816b1f9fd0c87f9");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffff80000000000", X"14954f0b4697776f44494fe458d814ed");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffffc0000000000", X"7c8d9ab6c2761723fe42f8bb506cbcf7");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffffe0000000000", X"db7e1932679fdd99742aab04aa0d5a80");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffff0000000000", X"4c6a1c83e568cd10f27c2d73ded19c28");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffff8000000000", X"90ecbe6177e674c98de412413f7ac915");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffffc000000000", X"90684a2ac55fe1ec2b8ebd5622520b73");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffffe000000000", X"7472f9a7988607ca79707795991035e6");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffffff000000000", X"56aff089878bf3352f8df172a3ae47d8");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffffff800000000", X"65c0526cbe40161b8019a2a3171abd23");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffffffc00000000", X"377be0be33b4e3e310b4aabda173f84f");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffffffe00000000", X"9402e9aa6f69de6504da8d20c4fcaa2f");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffffff00000000", X"123c1f4af313ad8c2ce648b2e71fb6e1");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffffff80000000", X"1ffc626d30203dcdb0019fb80f726cf4");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffffffc0000000", X"76da1fbe3a50728c50fd2e621b5ad885");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffffffe0000000", X"082eb8be35f442fb52668e16a591d1d6");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffffffff0000000", X"e656f9ecf5fe27ec3e4a73d00c282fb3");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffffffff8000000", X"2ca8209d63274cd9a29bb74bcd77683a");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffffffffc000000", X"79bf5dce14bb7dd73a8e3611de7ce026");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffffffffe000000", X"3c849939a5d29399f344c4a0eca8a576");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffffffff000000", X"ed3c0a94d59bece98835da7aa4f07ca2");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffffffff800000", X"63919ed4ce10196438b6ad09d99cd795");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffffffffc00000", X"7678f3a833f19fea95f3c6029e2bc610");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffffffffe00000", X"3aa426831067d36b92be7c5f81c13c56");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffffffffff00000", X"9272e2d2cdd11050998c845077a30ea0");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffffffffff80000", X"088c4b53f5ec0ff814c19adae7f6246c");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffffffffffc0000", X"4010a5e401fdf0a0354ddbcc0d012b17");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffffffffffe0000", X"a87a385736c0a6189bd6589bd8445a93");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffffffffff0000", X"545f2b83d9616dccf60fa9830e9cd287");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffffffffff8000", X"4b706f7f92406352394037a6d4f4688d");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffffffffffc000", X"b7972b3941c44b90afa7b264bfba7387");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffffffffffe000", X"6f45732cf10881546f0fd23896d2bb60");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffffffffffff000", X"2e3579ca15af27f64b3c955a5bfc30ba");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffffffffffff800", X"34a2c5a91ae2aec99b7d1b5fa6780447");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffffffffffffc00", X"a4d6616bd04f87335b0e53351227a9ee");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffffffffffffe00", X"7f692b03945867d16179a8cefc83ea3f");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffffffffffff00", X"3bd141ee84a0e6414a26e7a4f281f8a2");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffffffffffff80", X"d1788f572d98b2b16ec5d5f3922b99bc");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffffffffffffc0", X"0833ff6f61d98a57b288e8c3586b85a6");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffffffffffffe0", X"8568261797de176bf0b43becc6285afb");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffffffffffffff0", X"f9b0fda0c4a898f5b9e6f661c4ce4d07");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffffffffffffff8", X"8ade895913685c67c5269f8aae42983e");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffffffffffffffc", X"39bde67d5c8ed8a8b1c37eb8fa9f5ac0");
+		TestCipherCase(X"00000000000000000000000000000000", X"fffffffffffffffffffffffffffffffe", X"5c005e72c1418c44f569f2ea33ba54f3");
+		TestCipherCase(X"00000000000000000000000000000000", X"ffffffffffffffffffffffffffffffff", X"3f5b8cc9ea855a0afa7347d23e8d664e");
+
+		-- Appendix E of AESAVS: VarKey Known Answer Test Values
+		TestCipherCase(X"80000000000000000000000000000000", X"00000000000000000000000000000000", X"0edd33d3c621e546455bd8ba1418bec8");
+		TestCipherCase(X"c0000000000000000000000000000000", X"00000000000000000000000000000000", X"4bc3f883450c113c64ca42e1112a9e87");
+		TestCipherCase(X"e0000000000000000000000000000000", X"00000000000000000000000000000000", X"72a1da770f5d7ac4c9ef94d822affd97");
+		TestCipherCase(X"f0000000000000000000000000000000", X"00000000000000000000000000000000", X"970014d634e2b7650777e8e84d03ccd8");
+		TestCipherCase(X"f8000000000000000000000000000000", X"00000000000000000000000000000000", X"f17e79aed0db7e279e955b5f493875a7");
+		TestCipherCase(X"fc000000000000000000000000000000", X"00000000000000000000000000000000", X"9ed5a75136a940d0963da379db4af26a");
+		TestCipherCase(X"fe000000000000000000000000000000", X"00000000000000000000000000000000", X"c4295f83465c7755e8fa364bac6a7ea5");
+		TestCipherCase(X"ff000000000000000000000000000000", X"00000000000000000000000000000000", X"b1d758256b28fd850ad4944208cf1155");
+		TestCipherCase(X"ff800000000000000000000000000000", X"00000000000000000000000000000000", X"42ffb34c743de4d88ca38011c990890b");
+		TestCipherCase(X"ffc00000000000000000000000000000", X"00000000000000000000000000000000", X"9958f0ecea8b2172c0c1995f9182c0f3");
+		TestCipherCase(X"ffe00000000000000000000000000000", X"00000000000000000000000000000000", X"956d7798fac20f82a8823f984d06f7f5");
+		TestCipherCase(X"fff00000000000000000000000000000", X"00000000000000000000000000000000", X"a01bf44f2d16be928ca44aaf7b9b106b");
+		TestCipherCase(X"fff80000000000000000000000000000", X"00000000000000000000000000000000", X"b5f1a33e50d40d103764c76bd4c6b6f8");
+		TestCipherCase(X"fffc0000000000000000000000000000", X"00000000000000000000000000000000", X"2637050c9fc0d4817e2d69de878aee8d");
+		TestCipherCase(X"fffe0000000000000000000000000000", X"00000000000000000000000000000000", X"113ecbe4a453269a0dd26069467fb5b5");
+		TestCipherCase(X"ffff0000000000000000000000000000", X"00000000000000000000000000000000", X"97d0754fe68f11b9e375d070a608c884");
+		TestCipherCase(X"ffff8000000000000000000000000000", X"00000000000000000000000000000000", X"c6a0b3e998d05068a5399778405200b4");
+		TestCipherCase(X"ffffc000000000000000000000000000", X"00000000000000000000000000000000", X"df556a33438db87bc41b1752c55e5e49");
+		TestCipherCase(X"ffffe000000000000000000000000000", X"00000000000000000000000000000000", X"90fb128d3a1af6e548521bb962bf1f05");
+		TestCipherCase(X"fffff000000000000000000000000000", X"00000000000000000000000000000000", X"26298e9c1db517c215fadfb7d2a8d691");
+		TestCipherCase(X"fffff800000000000000000000000000", X"00000000000000000000000000000000", X"a6cb761d61f8292d0df393a279ad0380");
+		TestCipherCase(X"fffffc00000000000000000000000000", X"00000000000000000000000000000000", X"12acd89b13cd5f8726e34d44fd486108");
+		TestCipherCase(X"fffffe00000000000000000000000000", X"00000000000000000000000000000000", X"95b1703fc57ba09fe0c3580febdd7ed4");
+		TestCipherCase(X"ffffff00000000000000000000000000", X"00000000000000000000000000000000", X"de11722d893e9f9121c381becc1da59a");
+		TestCipherCase(X"ffffff80000000000000000000000000", X"00000000000000000000000000000000", X"6d114ccb27bf391012e8974c546d9bf2");
+		TestCipherCase(X"ffffffc0000000000000000000000000", X"00000000000000000000000000000000", X"5ce37e17eb4646ecfac29b9cc38d9340");
+		TestCipherCase(X"ffffffe0000000000000000000000000", X"00000000000000000000000000000000", X"18c1b6e2157122056d0243d8a165cddb");
+		TestCipherCase(X"fffffff0000000000000000000000000", X"00000000000000000000000000000000", X"99693e6a59d1366c74d823562d7e1431");
+		TestCipherCase(X"fffffff8000000000000000000000000", X"00000000000000000000000000000000", X"6c7c64dc84a8bba758ed17eb025a57e3");
+		TestCipherCase(X"fffffffc000000000000000000000000", X"00000000000000000000000000000000", X"e17bc79f30eaab2fac2cbbe3458d687a");
+		TestCipherCase(X"fffffffe000000000000000000000000", X"00000000000000000000000000000000", X"1114bc2028009b923f0b01915ce5e7c4");
+		TestCipherCase(X"ffffffff000000000000000000000000", X"00000000000000000000000000000000", X"9c28524a16a1e1c1452971caa8d13476");
+		TestCipherCase(X"ffffffff800000000000000000000000", X"00000000000000000000000000000000", X"ed62e16363638360fdd6ad62112794f0");
+		TestCipherCase(X"ffffffffc00000000000000000000000", X"00000000000000000000000000000000", X"5a8688f0b2a2c16224c161658ffd4044");
+		TestCipherCase(X"ffffffffe00000000000000000000000", X"00000000000000000000000000000000", X"23f710842b9bb9c32f26648c786807ca");
+		TestCipherCase(X"fffffffff00000000000000000000000", X"00000000000000000000000000000000", X"44a98bf11e163f632c47ec6a49683a89");
+		TestCipherCase(X"fffffffff80000000000000000000000", X"00000000000000000000000000000000", X"0f18aff94274696d9b61848bd50ac5e5");
+		TestCipherCase(X"fffffffffc0000000000000000000000", X"00000000000000000000000000000000", X"82408571c3e2424540207f833b6dda69");
+		TestCipherCase(X"fffffffffe0000000000000000000000", X"00000000000000000000000000000000", X"303ff996947f0c7d1f43c8f3027b9b75");
+		TestCipherCase(X"ffffffffff0000000000000000000000", X"00000000000000000000000000000000", X"7df4daf4ad29a3615a9b6ece5c99518a");
+		TestCipherCase(X"ffffffffff8000000000000000000000", X"00000000000000000000000000000000", X"c72954a48d0774db0b4971c526260415");
+		TestCipherCase(X"ffffffffffc000000000000000000000", X"00000000000000000000000000000000", X"1df9b76112dc6531e07d2cfda04411f0");
+		TestCipherCase(X"ffffffffffe000000000000000000000", X"00000000000000000000000000000000", X"8e4d8e699119e1fc87545a647fb1d34f");
+		TestCipherCase(X"fffffffffff000000000000000000000", X"00000000000000000000000000000000", X"e6c4807ae11f36f091c57d9fb68548d1");
+		TestCipherCase(X"fffffffffff800000000000000000000", X"00000000000000000000000000000000", X"8ebf73aad49c82007f77a5c1ccec6ab4");
+		TestCipherCase(X"fffffffffffc00000000000000000000", X"00000000000000000000000000000000", X"4fb288cc2040049001d2c7585ad123fc");
+		TestCipherCase(X"fffffffffffe00000000000000000000", X"00000000000000000000000000000000", X"04497110efb9dceb13e2b13fb4465564");
+		TestCipherCase(X"ffffffffffff00000000000000000000", X"00000000000000000000000000000000", X"75550e6cb5a88e49634c9ab69eda0430");
+		TestCipherCase(X"ffffffffffff80000000000000000000", X"00000000000000000000000000000000", X"b6768473ce9843ea66a81405dd50b345");
+		TestCipherCase(X"ffffffffffffc0000000000000000000", X"00000000000000000000000000000000", X"cb2f430383f9084e03a653571e065de6");
+		TestCipherCase(X"ffffffffffffe0000000000000000000", X"00000000000000000000000000000000", X"ff4e66c07bae3e79fb7d210847a3b0ba");
+		TestCipherCase(X"fffffffffffff0000000000000000000", X"00000000000000000000000000000000", X"7b90785125505fad59b13c186dd66ce3");
+		TestCipherCase(X"fffffffffffff8000000000000000000", X"00000000000000000000000000000000", X"8b527a6aebdaec9eaef8eda2cb7783e5");
+		TestCipherCase(X"fffffffffffffc000000000000000000", X"00000000000000000000000000000000", X"43fdaf53ebbc9880c228617d6a9b548b");
+		TestCipherCase(X"fffffffffffffe000000000000000000", X"00000000000000000000000000000000", X"53786104b9744b98f052c46f1c850d0b");
+		TestCipherCase(X"ffffffffffffff000000000000000000", X"00000000000000000000000000000000", X"b5ab3013dd1e61df06cbaf34ca2aee78");
+		TestCipherCase(X"ffffffffffffff800000000000000000", X"00000000000000000000000000000000", X"7470469be9723030fdcc73a8cd4fbb10");
+		TestCipherCase(X"ffffffffffffffc00000000000000000", X"00000000000000000000000000000000", X"a35a63f5343ebe9ef8167bcb48ad122e");
+		TestCipherCase(X"ffffffffffffffe00000000000000000", X"00000000000000000000000000000000", X"fd8687f0757a210e9fdf181204c30863");
+		TestCipherCase(X"fffffffffffffff00000000000000000", X"00000000000000000000000000000000", X"7a181e84bd5457d26a88fbae96018fb0");
+		TestCipherCase(X"fffffffffffffff80000000000000000", X"00000000000000000000000000000000", X"653317b9362b6f9b9e1a580e68d494b5");
+		TestCipherCase(X"fffffffffffffffc0000000000000000", X"00000000000000000000000000000000", X"995c9dc0b689f03c45867b5faa5c18d1");
+		TestCipherCase(X"fffffffffffffffe0000000000000000", X"00000000000000000000000000000000", X"77a4d96d56dda398b9aabecfc75729fd");
+		TestCipherCase(X"ffffffffffffffff0000000000000000", X"00000000000000000000000000000000", X"84be19e053635f09f2665e7bae85b42d");
+		TestCipherCase(X"ffffffffffffffff8000000000000000", X"00000000000000000000000000000000", X"32cd652842926aea4aa6137bb2be2b5e");
+		TestCipherCase(X"ffffffffffffffffc000000000000000", X"00000000000000000000000000000000", X"493d4a4f38ebb337d10aa84e9171a554");
+		TestCipherCase(X"ffffffffffffffffe000000000000000", X"00000000000000000000000000000000", X"d9bff7ff454b0ec5a4a2a69566e2cb84");
+		TestCipherCase(X"fffffffffffffffff000000000000000", X"00000000000000000000000000000000", X"3535d565ace3f31eb249ba2cc6765d7a");
+		TestCipherCase(X"fffffffffffffffff800000000000000", X"00000000000000000000000000000000", X"f60e91fc3269eecf3231c6e9945697c6");
+		TestCipherCase(X"fffffffffffffffffc00000000000000", X"00000000000000000000000000000000", X"ab69cfadf51f8e604d9cc37182f6635a");
+		TestCipherCase(X"fffffffffffffffffe00000000000000", X"00000000000000000000000000000000", X"7866373f24a0b6ed56e0d96fcdafb877");
+		TestCipherCase(X"ffffffffffffffffff00000000000000", X"00000000000000000000000000000000", X"1ea448c2aac954f5d812e9d78494446a");
+		TestCipherCase(X"ffffffffffffffffff80000000000000", X"00000000000000000000000000000000", X"acc5599dd8ac02239a0fef4a36dd1668");
+		TestCipherCase(X"ffffffffffffffffffc0000000000000", X"00000000000000000000000000000000", X"d8764468bb103828cf7e1473ce895073");
+		TestCipherCase(X"ffffffffffffffffffe0000000000000", X"00000000000000000000000000000000", X"1b0d02893683b9f180458e4aa6b73982");
+		TestCipherCase(X"fffffffffffffffffff0000000000000", X"00000000000000000000000000000000", X"96d9b017d302df410a937dcdb8bb6e43");
+		TestCipherCase(X"fffffffffffffffffff8000000000000", X"00000000000000000000000000000000", X"ef1623cc44313cff440b1594a7e21cc6");
+		TestCipherCase(X"fffffffffffffffffffc000000000000", X"00000000000000000000000000000000", X"284ca2fa35807b8b0ae4d19e11d7dbd7");
+		TestCipherCase(X"fffffffffffffffffffe000000000000", X"00000000000000000000000000000000", X"f2e976875755f9401d54f36e2a23a594");
+		TestCipherCase(X"ffffffffffffffffffff000000000000", X"00000000000000000000000000000000", X"ec198a18e10e532403b7e20887c8dd80");
+		TestCipherCase(X"ffffffffffffffffffff800000000000", X"00000000000000000000000000000000", X"545d50ebd919e4a6949d96ad47e46a80");
+		TestCipherCase(X"ffffffffffffffffffffc00000000000", X"00000000000000000000000000000000", X"dbdfb527060e0a71009c7bb0c68f1d44");
+		TestCipherCase(X"ffffffffffffffffffffe00000000000", X"00000000000000000000000000000000", X"9cfa1322ea33da2173a024f2ff0d896d");
+		TestCipherCase(X"fffffffffffffffffffff00000000000", X"00000000000000000000000000000000", X"8785b1a75b0f3bd958dcd0e29318c521");
+		TestCipherCase(X"fffffffffffffffffffff80000000000", X"00000000000000000000000000000000", X"38f67b9e98e4a97b6df030a9fcdd0104");
+		TestCipherCase(X"fffffffffffffffffffffc0000000000", X"00000000000000000000000000000000", X"192afffb2c880e82b05926d0fc6c448b");
+		TestCipherCase(X"fffffffffffffffffffffe0000000000", X"00000000000000000000000000000000", X"6a7980ce7b105cf530952d74daaf798c");
+		TestCipherCase(X"ffffffffffffffffffffff0000000000", X"00000000000000000000000000000000", X"ea3695e1351b9d6858bd958cf513ef6c");
+		TestCipherCase(X"ffffffffffffffffffffff8000000000", X"00000000000000000000000000000000", X"6da0490ba0ba0343b935681d2cce5ba1");
+		TestCipherCase(X"ffffffffffffffffffffffc000000000", X"00000000000000000000000000000000", X"f0ea23af08534011c60009ab29ada2f1");
+		TestCipherCase(X"ffffffffffffffffffffffe000000000", X"00000000000000000000000000000000", X"ff13806cf19cc38721554d7c0fcdcd4b");
+		TestCipherCase(X"fffffffffffffffffffffff000000000", X"00000000000000000000000000000000", X"6838af1f4f69bae9d85dd188dcdf0688");
+		TestCipherCase(X"fffffffffffffffffffffff800000000", X"00000000000000000000000000000000", X"36cf44c92d550bfb1ed28ef583ddf5d7");
+		TestCipherCase(X"fffffffffffffffffffffffc00000000", X"00000000000000000000000000000000", X"d06e3195b5376f109d5c4ec6c5d62ced");
+		TestCipherCase(X"fffffffffffffffffffffffe00000000", X"00000000000000000000000000000000", X"c440de014d3d610707279b13242a5c36");
+		TestCipherCase(X"ffffffffffffffffffffffff00000000", X"00000000000000000000000000000000", X"f0c5c6ffa5e0bd3a94c88f6b6f7c16b9");
+		TestCipherCase(X"ffffffffffffffffffffffff80000000", X"00000000000000000000000000000000", X"3e40c3901cd7effc22bffc35dee0b4d9");
+		TestCipherCase(X"ffffffffffffffffffffffffc0000000", X"00000000000000000000000000000000", X"b63305c72bedfab97382c406d0c49bc6");
+		TestCipherCase(X"ffffffffffffffffffffffffe0000000", X"00000000000000000000000000000000", X"36bbaab22a6bd4925a99a2b408d2dbae");
+		TestCipherCase(X"fffffffffffffffffffffffff0000000", X"00000000000000000000000000000000", X"307c5b8fcd0533ab98bc51e27a6ce461");
+		TestCipherCase(X"fffffffffffffffffffffffff8000000", X"00000000000000000000000000000000", X"829c04ff4c07513c0b3ef05c03e337b5");
+		TestCipherCase(X"fffffffffffffffffffffffffc000000", X"00000000000000000000000000000000", X"f17af0e895dda5eb98efc68066e84c54");
+		TestCipherCase(X"fffffffffffffffffffffffffe000000", X"00000000000000000000000000000000", X"277167f3812afff1ffacb4a934379fc3");
+		TestCipherCase(X"ffffffffffffffffffffffffff000000", X"00000000000000000000000000000000", X"2cb1dc3a9c72972e425ae2ef3eb597cd");
+		TestCipherCase(X"ffffffffffffffffffffffffff800000", X"00000000000000000000000000000000", X"36aeaa3a213e968d4b5b679d3a2c97fe");
+		TestCipherCase(X"ffffffffffffffffffffffffffc00000", X"00000000000000000000000000000000", X"9241daca4fdd034a82372db50e1a0f3f");
+		TestCipherCase(X"ffffffffffffffffffffffffffe00000", X"00000000000000000000000000000000", X"c14574d9cd00cf2b5a7f77e53cd57885");
+		TestCipherCase(X"fffffffffffffffffffffffffff00000", X"00000000000000000000000000000000", X"793de39236570aba83ab9b737cb521c9");
+		TestCipherCase(X"fffffffffffffffffffffffffff80000", X"00000000000000000000000000000000", X"16591c0f27d60e29b85a96c33861a7ef");
+		TestCipherCase(X"fffffffffffffffffffffffffffc0000", X"00000000000000000000000000000000", X"44fb5c4d4f5cb79be5c174a3b1c97348");
+		TestCipherCase(X"fffffffffffffffffffffffffffe0000", X"00000000000000000000000000000000", X"674d2b61633d162be59dde04222f4740");
+		TestCipherCase(X"ffffffffffffffffffffffffffff0000", X"00000000000000000000000000000000", X"b4750ff263a65e1f9e924ccfd98f3e37");
+		TestCipherCase(X"ffffffffffffffffffffffffffff8000", X"00000000000000000000000000000000", X"62d0662d6eaeddedebae7f7ea3a4f6b6");
+		TestCipherCase(X"ffffffffffffffffffffffffffffc000", X"00000000000000000000000000000000", X"70c46bb30692be657f7eaa93ebad9897");
+		TestCipherCase(X"ffffffffffffffffffffffffffffe000", X"00000000000000000000000000000000", X"323994cfb9da285a5d9642e1759b224a");
+		TestCipherCase(X"fffffffffffffffffffffffffffff000", X"00000000000000000000000000000000", X"1dbf57877b7b17385c85d0b54851e371");
+		TestCipherCase(X"fffffffffffffffffffffffffffff800", X"00000000000000000000000000000000", X"dfa5c097cdc1532ac071d57b1d28d1bd");
+		TestCipherCase(X"fffffffffffffffffffffffffffffc00", X"00000000000000000000000000000000", X"3a0c53fa37311fc10bd2a9981f513174");
+		TestCipherCase(X"fffffffffffffffffffffffffffffe00", X"00000000000000000000000000000000", X"ba4f970c0a25c41814bdae2e506be3b4");
+		TestCipherCase(X"ffffffffffffffffffffffffffffff00", X"00000000000000000000000000000000", X"2dce3acb727cd13ccd76d425ea56e4f6");
+		TestCipherCase(X"ffffffffffffffffffffffffffffff80", X"00000000000000000000000000000000", X"5160474d504b9b3eefb68d35f245f4b3");
+		TestCipherCase(X"ffffffffffffffffffffffffffffffc0", X"00000000000000000000000000000000", X"41a8a947766635dec37553d9a6c0cbb7");
+		TestCipherCase(X"ffffffffffffffffffffffffffffffe0", X"00000000000000000000000000000000", X"25d6cfe6881f2bf497dd14cd4ddf445b");
+		TestCipherCase(X"fffffffffffffffffffffffffffffff0", X"00000000000000000000000000000000", X"41c78c135ed9e98c096640647265da1e");
+		TestCipherCase(X"fffffffffffffffffffffffffffffff8", X"00000000000000000000000000000000", X"5a4d404d8917e353e92a21072c3b2305");
+		TestCipherCase(X"fffffffffffffffffffffffffffffffc", X"00000000000000000000000000000000", X"02bc96846b3fdc71643f384cd3cc3eaf");
+		TestCipherCase(X"fffffffffffffffffffffffffffffffe", X"00000000000000000000000000000000", X"9ba4a9143f4e5d4048521c4f8877d88e");
+		TestCipherCase(X"ffffffffffffffffffffffffffffffff", X"00000000000000000000000000000000", X"a1f6258c877d5fcd8964484538bfc92C");
+		
+		report "Completed Package Tests";
+		
+		wait;
+	end process;
+
+	BEHAVIORAL_TEST: process
+		-- Manually update the clock rather than waiting on signals.
+		procedure UpdateClock is
+		begin
+			CLK <= '0';
+			wait for 5ns;
+			
+			CLK <= '1';
+			wait for 5ns;
+		end procedure;
+		
+		-- Load a value into DATA_IN.
+		procedure Load(VALUE : std_logic_vector(0 to 127)) is
+		begin
+			DATA_IN <= VALUE(0 to 31);
+			UpdateClock;
+		
+			DATA_IN <= VALUE(32 to 63);
+			UpdateClock;
+		
+			DATA_IN <= VALUE(64 to 95);
+			UpdateClock;
+
+			DATA_IN <= VALUE(96 to 127);
+			UpdateClock;
+		end procedure;
+		
+		-- Test loading values continuously (CBC support).
+		procedure NoResetTest(PLAIN_TEXT : std_logic_vector(0 to 127); EXPECTED_CIPHER_TEXT : std_logic_vector(0 to 127)) is
+			variable GOT_CIPHER_TEXT : std_logic_vector(0 to 127) := X"00000000000000000000000000000000";
+		begin
+			RESET <= '0';
+			START <= '0';
+			KEY_LOAD <= '0';
+			IV_LOAD <= '0';
+			DB_LOAD <= '0';
+			STREAM <= '0';
+			ECB_MODE <= '0';
+			CBC_MODE <= '0';
+			UpdateClock;
+			
+			DB_LOAD <= '1';
+			UpdateClock;
+			Load(PLAIN_TEXT);
+			
+			while DONE /= '1' loop
+				UpdateClock;
+			end loop;
+			
+			GOT_CIPHER_TEXT(0 to 31) := DATA_OUT;
+			UpdateClock;
+			
+			GOT_CIPHER_TEXT(32 to 63) := DATA_OUT;
+			UpdateClock;
+			
+			GOT_CIPHER_TEXT(64 to 95) := DATA_OUT;
+			UpdateClock;
+			
+			GOT_CIPHER_TEXT(96 to 127) := DATA_OUT;
+			
+			assert GOT_CIPHER_TEXT = EXPECTED_CIPHER_TEXT report "MODEL TEST: Received: " & to_hstring(GOT_CIPHER_TEXT) & " but expected: " & to_hstring(EXPECTED_CIPHER_TEXT) severity error;			
+		end procedure;
+		
+		-- Each test is 250ns
+		procedure ResetTest(IS_ECB : boolean; KEY : std_logic_vector(0 to 127); IV : std_logic_vector(0 to 127); PLAIN_TEXT : std_logic_vector(0 to 127); EXPECTED_CIPHER_TEXT : std_logic_vector(0 to 127)) is
+			variable GOT_CIPHER_TEXT : std_logic_vector(0 to 127) := X"00000000000000000000000000000000";
+		begin
+			RESET <= '1';
+			START <= '0';
+			KEY_LOAD <= '0';
+			IV_LOAD <= '0';
+			DB_LOAD <= '0';
+			STREAM <= '0';
+			ECB_MODE <= '0';
+			CBC_MODE <= '0';
+			DATA_IN <= X"00000000";
+			UpdateClock;
+			
+			RESET <= '0';
+			START <= '1';
+			UpdateClock;
+			
+			KEY_LOAD <= '1';
+			UpdateClock;
+			Load(KEY);
+			KEY_LOAD <= '0';
+			
+			IV_LOAD <= '1';
+			UpdateClock;
+			Load(IV);
+			IV_LOAD <= '0';
+		
+			STREAM <= '1';
+			UpdateClock;
+			
+			if IS_ECB = true then
+				ECB_MODE <= '1';
+			else
+				CBC_MODE <= '1';
+			end if;
+			UpdateClock;
+			
+			DB_LOAD <= '1';
+			UpdateClock;
+			Load(PLAIN_TEXT);
+			
+			while DONE /= '1' loop
+				UpdateClock;
+			end loop;
+			
+			GOT_CIPHER_TEXT(0 to 31) := DATA_OUT;
+			UpdateClock;
+			
+			GOT_CIPHER_TEXT(32 to 63) := DATA_OUT;
+			UpdateClock;
+			
+			GOT_CIPHER_TEXT(64 to 95) := DATA_OUT;
+			UpdateClock;
+			
+			GOT_CIPHER_TEXT(96 to 127) := DATA_OUT;
+			
+			assert GOT_CIPHER_TEXT = EXPECTED_CIPHER_TEXT report "MODEL TEST: Received: " & to_hstring(GOT_CIPHER_TEXT) & " but expected: " & to_hstring(EXPECTED_CIPHER_TEXT) severity error;
+		end procedure;
+	begin
+		report "Beginning Model Tests";
+		
+		UpdateClock;
+		
+		-- Appendix B of FIPS 197:
+		ResetTest(true, X"2b7e151628aed2a6abf7158809cf4f3c", X"00000000000000000000000000000000", X"3243f6a8885a308d313198a2e0370734", X"3925841d02dc09fbdc118597196a0b32");
+		
+		-- Test 6.3 of AESAVS: The Multi-block Message Test (MMT)
+		ResetTest(false, X"4278b840fb44aaa757c1bf04acbe1a3e", X"57f02a5c5339daeb0a2908a06ac6393f", X"3c888bbbb1a8eb9f3e9b87acaad986c4", X"479c89ec14bc98994e62b2c705b5014e");
+		NoResetTest(X"66e2f7071c83083b8a557971918850e5", X"175bd7832e7e60a1e92aac568a861eb7");
+		
+		report "Completed Model Tests";
+		
+		wait;
+	end process;
+	
+end TB_ARCHITECTURE;
+
+configuration TESTBENCH_FOR_aes_128_encrypt of aes_128_encrypt_tb is
+	for TB_ARCHITECTURE
+		for UUT1 : aes_128_encrypt
+			use entity work.aes_128_encrypt(aes_128_encrypt_behavioral);
+		end for;
+	end for;
+end TESTBENCH_FOR_aes_128_encrypt;
